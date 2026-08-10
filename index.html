@@ -217,7 +217,10 @@ nav button.on svg{stroke-width:2.2}
   <div class="hbar">
     <div class="wordmark"><b>Due</b><span>&#9650;</span><b>North</b></div>
     <div id="hstat"></div>
-    <button class="hbtn" id="syncBtn" aria-label="Sync with Canvas" title="Sync with Canvas">
+    <button class="hbtn" id="setupBtn" aria-label="Setup" title="Setup">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1 2 2 0 1 1-4 0 1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 15a2 2 0 1 1 0-4 1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9 4.6a2 2 0 1 1 4 0A1.6 1.6 0 0 0 15.7 5.7l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.6 1.6 0 0 0 19.4 11a2 2 0 1 1 0 4z"/></svg>
+    </button>
+    <button class="hbtn" id="syncBtn" aria-label="Sync everything" title="Sync everything">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>
     </button>
   </div>
@@ -231,7 +234,7 @@ nav button.on svg{stroke-width:2.2}
   <button data-tab="chart"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span>Chart</span></button>
   <button data-tab="grades"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>Grades</span></button>
   <button data-tab="plan"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Plan</span></button>
-  <button data-tab="setup"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1 2 2 0 1 1-4 0 1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.6 1.6 0 0 0 3 15a2 2 0 1 1 0-4 1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 9 4.6a2 2 0 1 1 4 0A1.6 1.6 0 0 0 15.7 5.7l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.6 1.6 0 0 0 19.4 11a2 2 0 1 1 0 4z"/></svg><span>Setup</span></button>
+  <button data-tab="log"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.6-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.4-7 10-7 10z"/></svg><span>Hours</span></button>
 </nav>
 
 <div class="scrim" id="scrim"></div>
@@ -257,13 +260,34 @@ const PALETTE = ["#2F6DA3","#A03A22","#2A6360","#7A4E9C","#9C7C12","#396B2E","#A
 const LOCAL_ONLY = ["workerUrl","appKey","push","lastSync","lastCloud","sync"];
 function blank(){
   return {
-    v:2, courses:[], items:[], blocks:[], settingsTs:0,
+    v:3, courses:[], items:[], blocks:[], activities:[], weekly:[], busy:[], settingsTs:0,
     settings:{
       workerUrl:"", appKey:"", email:"", leadDays:[7,3,1,0], digestHour:7,
-      dailyCapMin:180, push:false, sync:true, lastSync:0, lastCloud:0,
-      semStart:"", semEnd:"", target:90
+      dailyCapMin:180, push:false, sync:true, lastSync:0, lastCloud:0, lastBusy:0,
+      semStart:"", semEnd:"", target:90,
+      wakeHour:9, sleepHour:22, sessionMin:30, bufferMin:10, restMin:45,
+      term:"", priorCredits:0, priorGpa:0, priorBcpmCredits:0, priorBcpmGpa:0
     }
   };
+}
+/* AMCAS totals a separate Biology/Chemistry/Physics/Math GPA. This guesses
+   from the subject prefix; it's a starting point you confirm per course, since
+   AMCAS classifies by course content and its ruling is the one that counts. */
+const BCPM_RE=/^(BIOSC|BIO|BCHEM|BIOENG|CHEM|PHYS|MATH|STAT|NROSCI|GEOL|ASTRO|EOH|MICR|BSC)/i;
+function guessBcpm(code){ return BCPM_RE.test(String(code||"").trim()); }
+function guessTerm(d){
+  d=d||new Date(); const y=d.getFullYear(), m=d.getMonth();
+  return (m>=7?"Fall "+y : m<=3?"Spring "+y : "Summer "+y);
+}
+function curTerm(){ return D.settings.term || guessTerm(); }
+function terms(){
+  const set=new Set(courseList().map(c=>c.term).filter(Boolean));
+  set.add(curTerm());
+  return [...set].sort((a,b)=>{
+    const ord={Spring:0,Summer:1,Fall:2};
+    const [sa,ya]=a.split(" "), [sb,yb]=b.split(" ");
+    return (+yb-+ya) || (ord[sb]-ord[sa]);
+  });
 }
 const nowTs = () => Date.now();
 function touch(o){ o.ts = nowTs(); return o; }
@@ -275,7 +299,8 @@ function load(){
     if(!raw) return blank();
     const d = JSON.parse(raw), b = blank();
     d.settings = Object.assign(b.settings, d.settings||{});
-    for(const k of ["courses","items","blocks"]) if(!Array.isArray(d[k])) d[k]=[];
+    for(const k of ["courses","items","blocks","activities","weekly","busy"])
+      if(!Array.isArray(d[k])) d[k]=[];
     // v1 kept a parallel map of completed ids; fold it into the items themselves
     // so there is one source of truth for the merge to reason about.
     if(d.done && typeof d.done==="object"){
@@ -283,9 +308,15 @@ function load(){
       delete d.done;
     }
     // pre-sync records get ts=1 so any real edit anywhere wins over them
-    for(const k of ["courses","items","blocks"]) d[k].forEach(x=>{ if(!x.ts) x.ts=1; });
+    for(const k of ["courses","items","blocks","activities","weekly"])
+      d[k].forEach(x=>{ if(!x.ts) x.ts=1; });
     if(!d.settingsTs) d.settingsTs=1;
-    d.v=2;
+    // v2 -> v3: courses gain a term and a BCPM flag
+    for(const c of d.courses){
+      if(!c.term) c.term=guessTerm();
+      if(c.bcpm===undefined) c.bcpm=guessBcpm(c.code);
+    }
+    d.v=3;
     return d;
   }catch(e){ console.warn("load failed",e); return blank(); }
 }
@@ -346,6 +377,8 @@ function setDone(it,v){ it.done=!!v; touch(it); }
    everything user-facing reads through these two helpers instead. */
 function live(){ return D.items.filter(i=>!i.del); }
 function courseList(){ return D.courses.filter(c=>!c.del); }
+function activityList(){ return D.activities.filter(a=>!a.del); }
+function weeklyList(){ return D.weekly.filter(w=>!w.del); }
 function course(id){ return D.courses.find(c=>c.id===id&&!c.del) || {id:null,name:"No course",code:"—",color:"var(--ink-3)"}; }
 function sorted(list){ return list.slice().sort((a,b)=> new Date(a.due)-new Date(b.due)); }
 function open_(){ return live().filter(i=>!isDone(i)); }
@@ -365,6 +398,83 @@ function streak(){
   }
   return s;
 }
+
+/* ---------------- schedule awareness ----------------
+   Everything is minutes from local midnight. Busy time comes from your
+   calendar feed (via the worker) plus any recurring commitments you type in;
+   free time is the study window minus busy, minus a buffer either side.   */
+function hm(min){
+  min=Math.max(0,Math.min(1439,Math.round(min)));
+  let h=Math.floor(min/60), m=min%60, ap=h<12?"am":"pm";
+  h=h%12||12;
+  return h+(m?":"+String(m).padStart(2,"0"):"")+ap;
+}
+function parseHM(str){
+  const m=String(str||"").match(/^(\d{1,2}):(\d{2})$/);
+  return m ? Math.min(1439,+m[1]*60+ +m[2]) : null;
+}
+function mergeIv(list){
+  const a=list.filter(x=>x[1]>x[0]).sort((x,y)=>x[0]-y[0]), out=[];
+  for(const iv of a){
+    const last=out[out.length-1];
+    if(last && iv[0]<=last[1]) last[1]=Math.max(last[1],iv[1]);
+    else out.push([iv[0],iv[1]]);
+  }
+  return out;
+}
+function subtractIv(win, busy){
+  let free=[[win[0],win[1]]];
+  for(const b of busy){
+    const next=[];
+    for(const f of free){
+      if(b[1]<=f[0]||b[0]>=f[1]){ next.push(f); continue; }
+      if(b[0]>f[0]) next.push([f[0],b[0]]);
+      if(b[1]<f[1]) next.push([b[1],f[1]]);
+    }
+    free=next;
+  }
+  return free.filter(f=>f[1]-f[0]>0);
+}
+/* commitments from the imported calendar, expanded into today-relative minutes */
+function busyFor(k){
+  const buf=D.settings.bufferMin||0, out=[];
+  for(const e of (D.busy||[])){
+    const st=new Date(e.s);
+    if(dkey(st)!==k) continue;
+    const a=st.getHours()*60+st.getMinutes();
+    out.push([a-buf, a+(e.m||60)+buf]);
+  }
+  const dow=fromKey(k).getDay();
+  for(const w of weeklyList()){
+    if(!(w.days||[]).includes(dow)) continue;
+    const a=parseHM(w.start); if(a==null) continue;
+    out.push([a-buf, a+(w.min||60)+buf]);
+  }
+  return mergeIv(out);
+}
+function labelsFor(k){
+  const out=[];
+  for(const e of (D.busy||[])) if(dkey(new Date(e.s))===k){
+    const st=new Date(e.s), a=st.getHours()*60+st.getMinutes();
+    out.push({a, b:a+(e.m||60), t:e.t||"Busy"});
+  }
+  const dow=fromKey(k).getDay();
+  for(const w of weeklyList()) if((w.days||[]).includes(dow)){
+    const a=parseHM(w.start); if(a==null) continue;
+    out.push({a, b:a+(w.min||60), t:w.title||"Commitment"});
+  }
+  return out.sort((x,y)=>x.a-y.a);
+}
+function studyWindow(){
+  const w=(D.settings.wakeHour!=null?D.settings.wakeHour:7)*60;
+  let s=(D.settings.sleepHour!=null?D.settings.sleepHour:23)*60;
+  if(s<=w) s=1439;                      // guard against a window that wraps
+  return [w,s];
+}
+function freeFor(k, extraBusy){
+  return subtractIv(studyWindow(), mergeIv(busyFor(k).concat(extraBusy||[])));
+}
+function freeMinutes(k){ return freeFor(k).reduce((s,f)=>s+(f[1]-f[0]),0); }
 
 /* ---------------- ui plumbing ---------------- */
 let tab="today", selKey=dkey(today0()), calMonth=today0();
@@ -541,9 +651,6 @@ function sec(title, body, extra){
 }
 
 /* ---------------- view: CHART (calendar) ---------------- */
-function loadMin(k){
-  return D.blocks.filter(b=>b.date===k&&!b.del).reduce((s,b)=>s+b.min,0);
-}
 function vChart(){
   const m=new Date(calMonth.getFullYear(),calMonth.getMonth(),1);
   const first=new Date(m); first.setDate(1-m.getDay());
@@ -587,47 +694,123 @@ function points(p){ for(const [c,,g] of GPA_SCALE) if(p>=c) return g; return 0; 
 
 function gradeOf(c){
   const cats=(c.cats||[]).map(cat=>{
-    const sc=(cat.scores||[]).filter(s=>s.possible>0);
+    let sc=(cat.scores||[]).filter(s=>s.possible>0);
+    const drop=Math.max(0,+cat.dropLowest||0);
+    let dropped=0;
+    if(drop>0 && sc.length>drop){
+      // discard the weakest N by ratio, the way a syllabus means it
+      sc=sc.slice().sort((a,b)=>(a.earned/a.possible)-(b.earned/b.possible)).slice(drop);
+      dropped=drop;
+    }
     const e=sc.reduce((s,x)=>s+(+x.earned||0),0), p=sc.reduce((s,x)=>s+(+x.possible||0),0);
-    return {...cat, pct: p>0 ? e/p*100 : null, e, p, n:sc.length};
+    return {...cat, pct: p>0 ? e/p*100 : null, e, p, n:sc.length, dropped};
   });
   const scoredW=cats.filter(x=>x.pct!=null).reduce((s,x)=>s+(+x.weight||0),0);
   const earnedW=cats.filter(x=>x.pct!=null).reduce((s,x)=>s+(+x.weight||0)*x.pct/100,0);
   const totalW=cats.reduce((s,x)=>s+(+x.weight||0),0);
-  return {cats, cur: scoredW>0 ? earnedW/scoredW*100 : null, scoredW, earnedW, totalW};
+  const computed = scoredW>0 ? earnedW/scoredW*100 : null;
+  return {cats, cur: (c.finalPct!=null?+c.finalPct:computed), computed,
+          isFinal:c.finalPct!=null, scoredW, earnedW, totalW};
+}
+/* Assignments that arrived from your calendar and are waiting on a score.
+   Nothing is invented in the gradebook — this is derived from your items, so
+   there are never orphan rows to clean up. */
+function pickCat(c, type){
+  const pats={exam:/exam|midterm|final|test/i, quiz:/quiz/i, lab:/lab/i,
+    project:/project|present/i, assignment:/homework|hw|problem set|assign|pset/i,
+    other:/other|misc/i};
+  const re=pats[type];
+  const cats=c.cats||[];
+  return (re && cats.find(x=>re.test(x.name))) || cats[0] || null;
+}
+function pendingFor(c){
+  const scored=new Set();
+  for(const cat of (c.cats||[])) for(const sc of (cat.scores||[])) if(sc.itemId) scored.add(sc.itemId);
+  return sorted(live().filter(i=>i.courseId===c.id && !scored.has(i.id)
+    && i.type!=="reading" && (isDone(i)||daysOut(i.due)<0)));
 }
 function vGrades(){
   if(!courseList().length) return '<div class="empty" style="padding:30px">'+
-    '<p style="margin:0 0 12px;color:var(--ink-2)">No courses yet. Sync Canvas or add one.</p>'+
+    '<p style="margin:0 0 12px;color:var(--ink-2)">No courses yet. Sync your calendar or add one.</p>'+
     '<button class="btn" onclick="editCourse()">+ Add course</button></div>';
-  let gp=0, cr=0, h="";
+  const term=gradeView.term||curTerm();
+  const inTerm=courseList().filter(c=>(c.term||curTerm())===term);
+  let h="";
+
+  /* --- GPA panel: term, cumulative, and the separate BCPM figure --- */
+  const roll=(list)=>{
+    let pts=0, cr=0;
+    for(const c of list){ const g=gradeOf(c);
+      if(g.cur!=null && c.credits){ pts+=points(g.cur)*c.credits; cr+=c.credits; } }
+    return {pts,cr};
+  };
+  const S=D.settings;
+  const tg=roll(inTerm);
+  const all=roll(courseList());
+  const bc=roll(courseList().filter(c=>c.bcpm));
+  const cumPts=all.pts+(+S.priorGpa||0)*(+S.priorCredits||0), cumCr=all.cr+(+S.priorCredits||0);
+  const bcPts=bc.pts+(+S.priorBcpmGpa||0)*(+S.priorBcpmCredits||0), bcCr=bc.cr+(+S.priorBcpmCredits||0);
+  const gp=(p,c)=>c>0?(p/c).toFixed(2):"—";
+  h+='<div class="card" style="padding:0;margin-bottom:16px">'+
+    '<div style="display:flex">'+
+      gstat(gp(tg.pts,tg.cr), "term gpa", tg.cr+" cr")+
+      gstat(gp(cumPts,cumCr), "cumulative", cumCr+" cr")+
+      gstat(gp(bcPts,bcCr), "bcpm", bcCr+" cr")+
+    '</div>'+
+    '<div style="border-top:1px solid var(--rule-2);padding:8px 12px" class="hint">'+
+      'Projected from what you\'ve entered. BCPM covers biology, chemistry, physics and maths — '+
+      'tap a course to correct its flag. <button class="btn ghost sm" id="g_prior" style="margin-top:6px">Prior credits (AP/transfer)</button></div>'+
+    '</div>';
+
+  /* --- term switcher --- */
+  const tl=terms();
+  if(tl.length>1){
+    h+='<div class="row" style="margin-bottom:12px;flex-wrap:wrap">'+
+      tl.map(x=>'<button class="btn sm '+(x===term?"":"ghost")+'" data-term="'+esc(x)+'">'+esc(x)+'</button>').join("")+
+      '</div>';
+  }
+
   h+='<section class="sec">';
-  for(const c of courseList()){
-    const g=gradeOf(c), tgt=c.target||D.settings.target||90;
-    if(g.cur!=null && c.credits){ gp+=points(g.cur)*c.credits; cr+=c.credits; }
+  for(const c of inTerm){
+    const g=gradeOf(c), tgt=c.target||S.target||90, pend=pendingFor(c);
     h+='<div class="gcard" style="margin-bottom:10px">'+
       '<div class="gtop"><i style="width:4px;height:34px;border-radius:2px;background:'+(c.color)+';flex:none"></i>'+
-      '<div class="grow"><div style="font-weight:700;font-size:14px">'+esc(c.code||c.name)+'</div>'+
-      '<div class="lbl" style="letter-spacing:.06em">'+esc(c.name!==c.code?c.name:"")+(c.credits?" · "+c.credits+" cr":"")+'</div></div>'+
+      '<div class="grow" style="min-width:0"><div style="font-weight:700;font-size:14px">'+esc(c.code||c.name)+
+        (c.bcpm?' <span class="typ" style="border-color:var(--depth);color:var(--depth)">BCPM</span>':'')+'</div>'+
+      '<div class="lbl" style="letter-spacing:.06em">'+esc(c.name!==c.code?c.name:"")+(c.credits?" · "+c.credits+" cr":"")+
+        (g.isFinal?" · final":"")+'</div></div>'+
       '<div style="text-align:right">'+
         (g.cur!=null?'<div class="gbig">'+g.cur.toFixed(1)+'<span style="font-size:13px">%</span></div><div class="gltr">'+letter(g.cur)+'</div>'
                     :'<div class="gbig muted">—</div><div class="gltr">no scores</div>')+
       '</div>'+
-      '<button class="hbtn" data-gopen="'+c.id+'" aria-label="Edit grades"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button></div>';
+      (pend.length?'<span class="pill warn" style="align-self:flex-start">'+pend.length+'</span>':'')+
+      '<button class="hbtn" data-gopen="'+c.id+'" aria-label="Show details"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></button></div>';
     if(c._open){
       h+='<div class="gbody">';
-      if(!g.cats.length) h+='<p class="hint" style="margin:0 0 8px">No categories. Add them, or let a syllabus import fill them in.</p>';
+      if(pend.length){
+        h+='<div class="lbl" style="margin-bottom:5px">Waiting on a score</div>';
+        for(const it of pend.slice(0,8))
+          h+='<div class="catrow"><div class="grow" style="min-width:0">'+
+            '<div style="font-size:13px;font-weight:600">'+esc(it.title)+'</div>'+
+            '<div class="lbl" style="letter-spacing:.06em">'+esc(it.type)+' · due '+fmtDue(it.due)+'</div></div>'+
+            '<button class="btn sm" data-score="'+c.id+'|'+it.id+'">Enter</button></div>';
+        if(pend.length>8) h+='<p class="hint" style="margin:4px 0 0">+'+(pend.length-8)+' more</p>';
+        h+='<div style="height:12px"></div>';
+      }
+      if(!g.cats.length) h+='<p class="hint" style="margin:0 0 8px">No categories yet. '+
+        '<button class="btn ghost sm" data-std="'+c.id+'">Add a standard set</button></p>';
       for(const cat of g.cats){
+        const drop=cat.dropLowest||0;
         h+='<div class="catrow"><div class="grow" style="min-width:0">'+
           '<div style="font-size:13px;font-weight:600">'+esc(cat.name)+'</div>'+
-          '<div class="lbl" style="letter-spacing:.06em">'+(+cat.weight||0)+'% · '+cat.n+' score'+(cat.n===1?"":"s")+'</div></div>'+
+          '<div class="lbl" style="letter-spacing:.06em">'+(+cat.weight||0)+'% · '+cat.n+' score'+(cat.n===1?"":"s")+
+            (drop?" · drops "+drop:"")+'</div></div>'+
           (cat.pct!=null?'<div class="bar"><i style="width:'+Math.min(100,cat.pct)+'%"></i></div>'+
            '<div class="num" style="font-size:13px;font-weight:700;min-width:46px;text-align:right">'+cat.pct.toFixed(1)+'%</div>'
            :'<div class="num muted" style="font-size:12px">—</div>')+
           '<button class="btn ghost sm" data-cat="'+c.id+'|'+cat.id+'">Scores</button></div>';
       }
-      // target solver
-      if(g.totalW>0){
+      if(g.totalW>0 && !g.isFinal){
         const rem=g.totalW-g.scoredW;
         if(rem>0.01){
           const need=(tgt*g.totalW/100 - g.earnedW)/rem*100;
@@ -653,25 +836,69 @@ function vGrades(){
     h+='</div>';
   }
   h+='</section>';
-  if(cr>0) h+='<div class="card row" style="margin-bottom:14px"><div class="grow"><div class="lbl">Projected term GPA</div>'+
-    '<div class="hint" style="margin:2px 0 0">'+cr+' credits with scores entered</div></div>'+
-    '<div class="num" style="font-size:26px;font-weight:700">'+(gp/cr).toFixed(2)+'</div></div>';
   h+='<button class="btn ghost wide" onclick="editCourse()">+ Add course</button>';
   return h;
 }
+let gradeView={term:null};
+function gstat(v,l,sub){
+  return '<div style="flex:1;padding:12px 4px;text-align:center;border-right:1px solid var(--rule-2)">'+
+    '<div class="num" style="font-size:21px;font-weight:700;letter-spacing:-.02em">'+v+'</div>'+
+    '<div class="lbl" style="font-size:9px;letter-spacing:.1em">'+l+'</div>'+
+    '<div class="lbl muted" style="font-size:9px;letter-spacing:.06em">'+sub+'</div></div>';
+}
+const STD_CATS=[["Homework",20],["Quizzes",15],["Exams",40],["Final Exam",25]];
+
 function bindGrades(root){
+  root.querySelectorAll("[data-term]").forEach(b=>b.onclick=()=>{ gradeView.term=b.dataset.term; render(); });
   root.querySelectorAll("[data-gopen]").forEach(b=>b.onclick=()=>{
     const c=D.courses.find(x=>x.id===b.dataset.gopen); c._open=!c._open; render();
+  });
+  root.querySelectorAll("[data-std]").forEach(b=>b.onclick=()=>{
+    const c=D.courses.find(x=>x.id===b.dataset.std);
+    c.cats=(c.cats||[]).concat(STD_CATS.map(([n,w])=>({id:uid(),name:n,weight:w,scores:[]})));
+    touch(c); save(); render(); toast("Added 4 categories — adjust the weights to match your syllabus");
+  });
+  root.querySelectorAll("[data-score]").forEach(b=>b.onclick=()=>{
+    const [cid,iid]=b.dataset.score.split("|");
+    const c=D.courses.find(x=>x.id===cid), it=D.items.find(x=>x.id===iid);
+    if(!c.cats||!c.cats.length) return toast("Add grade categories first");
+    const guess=pickCat(c,it.type);
+    openSheet("Score: "+it.title,
+      '<label class="f"><span>Category</span><select id="q_c">'+
+        c.cats.map(x=>'<option value="'+x.id+'"'+(guess&&x.id===guess.id?" selected":"")+'>'+esc(x.name)+' ('+(+x.weight||0)+'%)</option>').join("")+
+        '</select></label>'+
+      '<div class="two"><label class="f"><span>Earned</span><input type="number" step="any" id="q_e" autofocus></label>'+
+      '<label class="f"><span>Out of</span><input type="number" step="any" id="q_p" value="'+(it.points!=null?it.points:100)+'"></label></div>'+
+      '<button class="btn wide" id="q_ok">Save score</button>'+
+      '<button class="btn ghost wide" id="q_skip" style="margin-top:8px">Not graded — hide it</button>');
+    $("#q_ok").onclick=()=>{
+      const e=parseFloat($("#q_e").value), pp=parseFloat($("#q_p").value)||100;
+      if(isNaN(e)) return toast("Enter a score");
+      const cat=c.cats.find(x=>x.id===$("#q_c").value);
+      cat.scores=cat.scores||[];
+      cat.scores.push({name:it.title.slice(0,60),earned:e,possible:pp,itemId:it.id});
+      touch(c); save(); closeSheet(); render(); toast("Score saved");
+    };
+    $("#q_skip").onclick=()=>{
+      const cat=c.cats.find(x=>x.id===$("#q_c").value);
+      cat.scores=cat.scores||[];
+      cat.scores.push({name:it.title.slice(0,60),earned:null,possible:null,itemId:it.id,skipped:true});
+      touch(c); save(); closeSheet(); render();
+    };
   });
   root.querySelectorAll("[data-addcat]").forEach(b=>b.onclick=()=>{
     const c=D.courses.find(x=>x.id===b.dataset.addcat);
     openSheet("New category",
       '<label class="f"><span>Name</span><input id="c_n" placeholder="Homework"></label>'+
       '<label class="f"><span>Weight (% of final grade)</span><input type="number" id="c_w" min="0" max="100" step="any" placeholder="20"></label>'+
-      '<button class="btn wide" id="c_ok">Add category</button>');
+      '<label class="f"><span>Drop lowest N scores</span><input type="number" id="c_d" min="0" max="10" value="0"></label>'+
+      '<button class="btn wide" id="c_ok">Add category</button>'+
+      '<p class="hint">Intro science courses often drop a lowest quiz or two — set that here and the maths accounts for it.</p>');
     $("#c_ok").onclick=()=>{
       const n=$("#c_n").value.trim(); if(!n) return toast("Name it");
-      c.cats=c.cats||[]; c.cats.push({id:uid(),name:n,weight:parseFloat($("#c_w").value)||0,scores:[]});
+      c.cats=c.cats||[];
+      c.cats.push({id:uid(),name:n,weight:parseFloat($("#c_w").value)||0,
+        dropLowest:Math.max(0,parseInt($("#c_d").value)||0),scores:[]});
       touch(c); save(); closeSheet(); render();
     };
   });
@@ -683,22 +910,42 @@ function bindGrades(root){
     $("#t_ok").onclick=()=>{ c.target=parseFloat($("#t_v").value)||90; touch(c); save(); closeSheet(); render(); };
   });
   root.querySelectorAll("[data-cedit]").forEach(b=>b.onclick=()=>editCourse(b.dataset.cedit));
+  const pr=root.querySelector("#g_prior");
+  if(pr) pr.onclick=()=>{
+    const S=D.settings;
+    openSheet("Prior credits",
+      '<p class="hint" style="margin:0 0 12px">AP, transfer or dual-enrolment credit already on your transcript. Leave at zero if none.</p>'+
+      '<div class="two"><label class="f"><span>Credits</span><input type="number" step="any" id="pc" value="'+(+S.priorCredits||0)+'"></label>'+
+      '<label class="f"><span>GPA</span><input type="number" step="any" max="4" id="pg" value="'+(+S.priorGpa||0)+'"></label></div>'+
+      '<div class="two"><label class="f"><span>of which BCPM credits</span><input type="number" step="any" id="pbc" value="'+(+S.priorBcpmCredits||0)+'"></label>'+
+      '<label class="f"><span>BCPM GPA</span><input type="number" step="any" max="4" id="pbg" value="'+(+S.priorBcpmGpa||0)+'"></label></div>'+
+      '<button class="btn wide" id="p_ok">Save</button>');
+    $("#p_ok").onclick=()=>{
+      S.priorCredits=parseFloat($("#pc").value)||0; S.priorGpa=parseFloat($("#pg").value)||0;
+      S.priorBcpmCredits=parseFloat($("#pbc").value)||0; S.priorBcpmGpa=parseFloat($("#pbg").value)||0;
+      touchSettings(); save(); closeSheet(); render();
+    };
+  };
   root.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{
     const [cid,catid]=b.dataset.cat.split("|");
     const c=D.courses.find(x=>x.id===cid), cat=c.cats.find(x=>x.id===catid);
-    const rows=(cat.scores||[]).map((s,i)=>
-      '<div class="catrow"><div class="grow" style="font-size:13px">'+esc(s.name||"Score "+(i+1))+'</div>'+
-      '<div class="num" style="font-size:13px">'+s.earned+' / '+s.possible+'</div>'+
+    const rows=(cat.scores||[]).map((sc,i)=>
+      '<div class="catrow"><div class="grow" style="font-size:13px;min-width:0">'+esc(sc.name||"Score "+(i+1))+
+      (sc.skipped?' <span class="muted">(not graded)</span>':'')+'</div>'+
+      '<div class="num" style="font-size:13px">'+(sc.possible>0?sc.earned+" / "+sc.possible:"—")+'</div>'+
       '<button class="btn ghost sm" data-rm="'+i+'">&#10005;</button></div>').join("")||'<p class="hint" style="margin:0">No scores yet.</p>';
     openSheet(cat.name+" — scores", rows+
       '<div class="two" style="margin-top:14px"><label class="f"><span>Earned</span><input type="number" step="any" id="s_e"></label>'+
       '<label class="f"><span>Out of</span><input type="number" step="any" id="s_p" placeholder="100"></label></div>'+
       '<label class="f"><span>Label (optional)</span><input id="s_n" placeholder="HW 4"></label>'+
+      '<label class="f"><span>Drop lowest N</span><input type="number" min="0" max="10" id="s_d" value="'+(cat.dropLowest||0)+'"></label>'+
       '<button class="btn wide" id="s_ok">Add score</button>'+
-      '<p class="hint">Weight for this category: '+(+cat.weight||0)+'% of the final grade.</p>');
+      '<p class="hint">This category is '+(+cat.weight||0)+'% of the final grade.</p>');
     $("#s_ok").onclick=()=>{
+      const d=Math.max(0,parseInt($("#s_d").value)||0);
+      if(d!==(cat.dropLowest||0)){ cat.dropLowest=d; touch(c); }
       const e=parseFloat($("#s_e").value), p=parseFloat($("#s_p").value)||100;
-      if(isNaN(e)) return toast("Enter a score");
+      if(isNaN(e)){ save(); closeSheet(); render(); return; }
       cat.scores=cat.scores||[]; cat.scores.push({name:$("#s_n").value.trim(),earned:e,possible:p});
       touch(c); save(); closeSheet(); render(); toast("Score added");
     };
@@ -710,9 +957,14 @@ function bindGrades(root){
 function editCourse(id){
   const c = id ? D.courses.find(x=>x.id===id) : null;
   openSheet(c?"Edit course":"New course",
-    '<div class="two"><label class="f"><span>Code</span><input id="k_c" value="'+esc(c?c.code:"")+'" placeholder="PHYS 1362"></label>'+
+    '<div class="two"><label class="f"><span>Code</span><input id="k_c" value="'+esc(c?c.code:"")+'" placeholder="CHEM 0310"></label>'+
     '<label class="f"><span>Credits</span><input type="number" id="k_r" step="any" min="0" value="'+(c&&c.credits?c.credits:"")+'" placeholder="3"></label></div>'+
-    '<label class="f"><span>Full name</span><input id="k_n" value="'+esc(c?c.name:"")+'" placeholder="Physics 2 for Engineers"></label>'+
+    '<label class="f"><span>Full name</span><input id="k_n" value="'+esc(c?c.name:"")+'" placeholder="Organic Chemistry 1"></label>'+
+    '<div class="two"><label class="f"><span>Term</span><input id="k_t" value="'+esc(c?(c.term||curTerm()):curTerm())+'" placeholder="Fall 2026"></label>'+
+    '<label class="f"><span>Final grade % (if finished)</span><input type="number" step="any" id="k_f" value="'+(c&&c.finalPct!=null?c.finalPct:"")+'" placeholder="—"></label></div>'+
+    '<label class="f" style="display:flex;align-items:center;gap:9px;margin-bottom:12px">'+
+      '<input type="checkbox" id="k_b" '+((c?c.bcpm:guessBcpm(""))?"checked":"")+' style="width:20px;height:20px;flex:none">'+
+      '<span style="margin:0">Counts toward BCPM (bio / chem / physics / maths)</span></label>'+
     '<label class="f"><span>Colour</span><div class="row" id="k_p" style="flex-wrap:wrap">'+
       PALETTE.map(p=>'<button data-p="'+p+'" style="width:30px;height:30px;border-radius:var(--r);background:'+p+
         ';border:2px solid '+(c&&c.color===p?"var(--ink)":"transparent")+'"></button>').join("")+'</div></label>'+
@@ -723,12 +975,19 @@ function editCourse(id){
     col=b.dataset.p;
     $("#k_p").querySelectorAll("[data-p]").forEach(x=>x.style.borderColor = x.dataset.p===col?"var(--ink)":"transparent");
   });
+  // typing a code re-guesses the BCPM flag until you touch the box yourself
+  let bTouched=!!c;
+  $("#k_b").onchange=()=>{ bTouched=true; };
+  $("#k_c").oninput=()=>{ if(!bTouched) $("#k_b").checked=guessBcpm($("#k_c").value); };
   $("#k_ok").onclick=()=>{
     const code=$("#k_c").value.trim(), name=$("#k_n").value.trim()||code;
     if(!code&&!name) return toast("Give it a code");
     const cr=parseFloat($("#k_r").value)||null;
-    if(c) touch(Object.assign(c,{code,name,credits:cr,color:col}));
-    else D.courses.push(touch({id:uid(),code,name,credits:cr,color:col,cats:[],_open:true}));
+    const fp=$("#k_f").value===""?null:parseFloat($("#k_f").value);
+    const fields={code,name,credits:cr,color:col,term:$("#k_t").value.trim()||curTerm(),
+      bcpm:$("#k_b").checked, finalPct:fp};
+    if(c) touch(Object.assign(c,fields));
+    else D.courses.push(touch(Object.assign({id:uid(),cats:[],_open:true},fields)));
     save(); closeSheet(); render();
   };
   if(c) $("#k_del").onclick=()=>{
@@ -739,43 +998,108 @@ function editCourse(id){
   };
 }
 
-/* ---------------- view: PLAN (backwards study planner) ---------------- */
+/* ---------------- view: PLAN (time-aware backwards planner) ----------------
+   Sessions are laid backwards from each due date, then placed into actual gaps
+   in your week: never during a class, a lab, a shift or sleep, never over the
+   daily ceiling, and never on top of a session already placed.            */
 const SPREAD={exam:[10,7,5,3,2,1],quiz:[3,2,1],project:[14,10,7,5,3,2,1],lab:[3,1],
   assignment:[3,1],reading:[1],other:[1]};
 function buildPlan(push=true){
   const cap=D.settings.dailyCapMin||180;
+  const minS=D.settings.sessionMin||30;
   const keep=D.blocks.filter(b=>b.done||b.del);   // never blow away finished work
-  const day={}; keep.forEach(b=>day[b.date]=(day[b.date]||0)+b.min);
+  const rest=D.settings.restMin!=null?D.settings.restMin:45;
+  const used={}, taken={};
+  for(const b of keep){
+    used[b.date]=(used[b.date]||0)+b.min;
+    // reserve a rest gap either side, so sessions spread across the day
+    // instead of stacking end-to-end from the moment you get up
+    if(b.start!=null) (taken[b.date]=taken[b.date]||[]).push([b.start-rest,b.start+b.min+rest]);
+  }
   const fresh=[];
   for(const it of sorted(open_())){
     const n=daysOut(it.due); if(n<0) continue;
     const total=it.est||EST[it.type]||60;
     const offs=(SPREAD[it.type]||SPREAD.other).filter(o=>o<=n);
     const use=offs.length?offs:[0];
-    const per=Math.max(20,Math.round(total/use.length/5)*5);
+    const per=Math.max(minS, Math.round(total/use.length/5)*5);
     for(const o of use){
       const k=dkey(new Date(+fromKey(dkey(it.due))-o*MS_D));
-      if((day[k]||0)+per>cap) continue;              // respect the daily ceiling
-      const id=it.id+":"+k;                           // deterministic: mergeable
-      if(keep.some(b=>b.id===id)) continue;
-      day[k]=(day[k]||0)+per;
-      fresh.push({id,itemId:it.id,date:k,min:per,done:false,ts:1});
+      if(daysOut(k+"T12:00:00")<0) continue;
+      if((used[k]||0)+per>cap) continue;                 // daily ceiling
+      const id=it.id+":"+k;
+      if(keep.some(x=>x.id===id)) continue;
+      // roomiest gap first, so a long session isn't wedged into a short slot
+      const gaps=freeFor(k, taken[k]||[]).filter(g=>g[1]-g[0]>=per)
+        .sort((a,b)=>(b[1]-b[0])-(a[1]-a[0]));
+      if(!gaps.length) continue;                         // genuinely no room
+      const start=gaps[0][0];
+      used[k]=(used[k]||0)+per;
+      (taken[k]=taken[k]||[]).push([start-rest,start+per+rest]);
+      fresh.push({id,itemId:it.id,date:k,start,min:per,done:false,ts:1});
     }
   }
   D.blocks=keep.concat(fresh); save(push);
 }
+function loadMin(k){
+  return D.blocks.filter(b=>b.date===k&&!b.del).reduce((s,b)=>s+b.min,0);
+}
+function unplaced(){
+  // items whose sessions couldn't all be fitted, so you know before it bites
+  const out=[];
+  for(const it of open_()){
+    if(daysOut(it.due)<0) continue;
+    const want=(SPREAD[it.type]||SPREAD.other).filter(o=>o<=daysOut(it.due)).length||1;
+    const got=D.blocks.filter(b=>b.itemId===it.id&&!b.del).length;
+    if(got<want) out.push({it, got, want});
+  }
+  return out;
+}
+
 function vPlan(){
-  const cap=D.settings.dailyCapMin||180;
+  const cap=D.settings.dailyCapMin||180, win=studyWindow();
   const start=today0();
-  let h='<div class="card row" style="margin-bottom:16px"><div class="grow">'+
-    '<div class="lbl">Study blocks</div><div class="hint" style="margin:2px 0 0">Next two weeks, built backwards from each due date, capped at '+cap+' min/day</div></div>'+
+  let h='<div class="card row" style="margin-bottom:14px"><div class="grow">'+
+    '<div class="lbl">Study blocks</div><div class="hint" style="margin:2px 0 0">'+
+    'Placed around your calendar · '+hm(win[0])+'–'+hm(win[1])+' · max '+cap+' min/day</div></div>'+
     '<button class="btn sm" id="rebuild">Rebuild</button></div>';
-  if(!D.blocks.length) h+='<div class="empty">No blocks yet. Tap Rebuild to lay out the next three weeks.</div>';
+  if(!(D.busy||[]).length && !weeklyList().length)
+    h+='<div class="empty" style="margin-bottom:14px">Due North doesn\'t know your schedule yet, so blocks are placed from '+
+       hm(win[0])+' onward. Add your calendar feed or weekly classes in Setup.</div>';
+  const miss=unplaced();
+  if(miss.length) h+='<div class="need" style="margin-bottom:14px">No room for '+
+    miss.length+' session'+(miss.length===1?"":"s")+' — your week is full. Raise the daily ceiling, '+
+    'widen your awake hours, or accept a lighter plan.</div>';
+
+  // free-time summary for the week ahead
+  let wk=0; const days=[], minS=D.settings.sessionMin||30;
+  for(let i=0;i<7;i++){
+    const k=dkey(new Date(+start+i*MS_D));
+    const all=freeFor(k, D.blocks.filter(b=>b.date===k&&!b.del&&b.start!=null).map(b=>[b.start,b.start+b.min]));
+    const f=all.filter(g=>g[1]-g[0]>=minS);        // slivers aren't study time
+    const m=f.reduce((s,g)=>s+(g[1]-g[0]),0);
+    wk+=m; days.push({k,f,m,frag:all.length-f.length});
+  }
+  h+='<section class="sec"><div class="sec-h"><h2>Free time this week</h2><div class="line"></div>'+
+     '<span class="num lbl" style="font-size:10px">'+Math.round(wk/60)+'h usable</span></div><div class="card">';
+  for(const d of days){
+    const dt=fromKey(d.k);
+    h+='<div class="catrow"><div style="width:34px" class="lbl">'+DOW3[dt.getDay()].toUpperCase()+'</div>'+
+      '<div class="grow" style="font-size:12px;font-family:var(--mono);color:var(--ink-2)">'+
+      (d.f.length?d.f.map(g=>hm(g[0])+'–'+hm(g[1])).join(", ")
+        :'<span class="muted">nothing '+(d.frag?"usable":"open")+'</span>')+'</div>'+
+      '<div class="num" style="font-size:12px;font-weight:700">'+Math.round(d.m/60*10)/10+'h</div></div>';
+  }
+  h+='</div></section>';
+  h+='<p class="hint" style="margin:-12px 0 18px">Gaps shorter than '+minS+
+     ' minutes are left out — set a shorter session in Setup if you want them counted.</p>';
+
   let any=false;
   for(let i=0;i<14;i++){
     const d=new Date(+start+i*MS_D), k=dkey(d);
-    const bl=D.blocks.filter(b=>b.date===k&&!b.del);
+    const bl=D.blocks.filter(b=>b.date===k&&!b.del).sort((a,b)=>(a.start??0)-(b.start??0));
     const dues=dueOn(k).filter(x=>!isDone(x));
+    const busy=labelsFor(k);
     if(!bl.length&&!dues.length) continue;
     any=true;
     const tot=bl.reduce((s,b)=>s+b.min,0), dn=bl.filter(b=>b.done).reduce((s,b)=>s+b.min,0);
@@ -784,8 +1108,10 @@ function vPlan(){
       '<div class="line"></div>'+
       (tot?'<span class="num lbl" style="font-size:10px">'+dn+'/'+tot+' min</span>':'')+'</div>';
     if(tot) h+='<div class="bar" style="max-width:none;margin-bottom:8px"><i style="width:'+(tot?dn/tot*100:0)+'%"></i></div>';
+    if(busy.length) h+='<div class="hint" style="margin:0 0 8px">Booked: '+
+      busy.map(b=>esc(b.t)+' '+hm(b.a)).join(" · ")+'</div>';
     h+='<div class="stack">';
-    for(const it of dues) h+='<div class="item '+urg(it)+'" style="border-left-color:var(--shoal)">'+
+    for(const it of dues) h+='<div class="item od" style="border-left-color:var(--shoal)">'+
       '<div class="grow"><div class="it-t" style="font-size:13.5px">DUE — '+esc(it.title)+'</div>'+
       '<div class="it-m"><span class="it-c" style="color:'+course(it.courseId).color+'">'+esc(course(it.courseId).code)+'</span>'+
       '<span class="it-d">'+(fmtTime(it.due)||"end of day")+'</span></div></div></div>';
@@ -794,18 +1120,19 @@ function vPlan(){
       h+='<div class="item'+(b.done?" done":"")+'" data-bid="'+b.id+'">'+
         '<button class="chk" data-bt="'+b.id+'" aria-label="Mark block done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></button>'+
         '<div class="grow"><div class="it-t" style="font-size:13.5px">'+esc(it.title)+'</div>'+
-        '<div class="it-m"><span class="it-c" style="color:'+course(it.courseId).color+'">'+esc(course(it.courseId).code)+'</span>'+
+        '<div class="it-m">'+(b.start!=null?'<span class="it-c" style="color:var(--brass)">'+hm(b.start)+'–'+hm(b.start+b.min)+'</span>':'')+
+        '<span class="it-c" style="color:'+course(it.courseId).color+'">'+esc(course(it.courseId).code)+'</span>'+
         '<span class="it-d">due '+fmtDue(it.due)+'</span></div></div>'+
         '<div class="cdown num">'+b.min+'m</div></div>';
     }
     h+='</div></section>';
   }
-  if(!any&&D.blocks.length) h+='<div class="empty">Nothing scheduled in the next two weeks.</div>';
+  if(!any) h+='<div class="empty">Nothing scheduled in the next two weeks.</div>';
   return h;
 }
 function bindPlan(root){
   const rb=root.querySelector("#rebuild");
-  if(rb) rb.onclick=()=>{ buildPlan(); render(); toast("Plan rebuilt"); };
+  if(rb) rb.onclick=async()=>{ await refreshBusy(true); buildPlan(); render(); toast("Plan rebuilt"); };
   root.querySelectorAll("[data-bt]").forEach(b=>b.onclick=()=>{
     const bl=D.blocks.find(x=>x.id===b.dataset.bt); bl.done=!bl.done; touch(bl); save(); render();
   });
@@ -839,6 +1166,8 @@ function adoptMerged(m){
   const openCard = new Set(D.courses.filter(c=>c._open).map(c=>c.id));
   D.courses = m.courses.map(c=> openCard.has(c.id) ? {...c,_open:true} : c);
   D.items   = m.items;
+  if(Array.isArray(m.activities)) D.activities = m.activities;
+  if(Array.isArray(m.weekly))     D.weekly     = m.weekly;
   // the worker only keeps completed blocks; this device re-derives the rest
   const ids=new Set((m.blocks||[]).map(b=>b.id));
   D.blocks=(m.blocks||[]).concat(D.blocks.filter(b=>!b.done&&!b.del&&!ids.has(b.id)));
@@ -855,6 +1184,7 @@ async function cloudSync(quiet){
     const m = await api("/sync",{method:"POST",body:JSON.stringify({
       courses:D.courses, items:D.items,
       blocks:D.blocks.filter(b=>b.done||b.del),
+      activities:D.activities, weekly:D.weekly,
       settings:syncableSettings(), settingsTs:D.settingsTs||0
     })});
     adoptMerged(m);
@@ -899,10 +1229,25 @@ async function syncEverything(){
   try{
     await cloudSync(true);                 // pull anything the other device did
     if(W()) await syncCanvas(true);        // then refresh from Canvas
-    await cloudSync(true);                 // and publish the result
+    await refreshBusy(true);               // and your calendar's busy time
+    buildPlan(false);
+    await cloudSync(true);                 // publish the result
     render();
     toast("Up to date · "+open_().length+" open");
   } finally { btn.classList.remove("spin"); }
+}
+
+/* ---------------- calendar: busy time ---------------- */
+async function refreshBusy(force){
+  if(!W()) return false;
+  if(!force && Date.now()-(D.settings.lastBusy||0) < 30*60000) return false;
+  try{
+    const r=await api("/busy");
+    if(r.unset) return false;
+    D.busy=(r.events||[]).slice(0,1500);
+    D.settings.lastBusy=Date.now(); save(false);
+    return true;
+  }catch(e){ console.warn("busy",e); return false; }
 }
 
 /* ---------------- Canvas sync ---------------- */
@@ -1192,6 +1537,163 @@ function dl(name, text, mime){
   a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
 
+/* ---------------- view: LOG (experience hours) ----------------
+   Med school applications itemise every activity with hour counts, dates and a
+   contact. Reconstructing that in your third year from memory is miserable, so
+   this exists to be filled in as you go. Categories and the 700-character
+   description limit mirror how AMCAS asks for it; verify against the current
+   application, since the details do shift year to year.                   */
+const ACT_CATS=["Clinical volunteering","Non-clinical volunteering","Physician shadowing",
+  "Research / lab","Paid employment","Leadership","Teaching / tutoring",
+  "Extracurricular / hobby","Honour or award","Publication","Other"];
+const ACT_DESC_MAX=700, ACT_MEANING_MAX=1325;
+
+function actHours(a){ return (a.entries||[]).reduce((s,e)=>s+(+e.hours||0),0); }
+function shortDate(k){
+  if(!k) return "";
+  const d=fromKey(k);
+  return isNaN(d) ? k : MON[d.getMonth()]+" "+d.getDate()+
+    (d.getFullYear()!==new Date().getFullYear()?" "+d.getFullYear():"");
+}
+function totalHours(){ return activityList().reduce((s,a)=>s+actHours(a),0); }
+function hoursByCat(){
+  const m={};
+  for(const a of activityList()) m[a.category||"Other"]=(m[a.category||"Other"]||0)+actHours(a);
+  return Object.entries(m).sort((x,y)=>y[1]-x[1]);
+}
+function vLog(){
+  const list=activityList().slice().sort((a,b)=>actHours(b)-actHours(a));
+  let h="";
+  if(!list.length) return '<div class="empty" style="padding:32px 18px">'+
+    '<div class="lbl" style="margin-bottom:8px">Nothing logged yet</div>'+
+    '<p style="margin:0 0 14px;color:var(--ink-2);font-size:13px">Start this in your first month. '+
+    'Hours, dates and a contact for each activity are exactly what applications ask for later, '+
+    'and they\'re painful to reconstruct from memory.</p>'+
+    '<button class="btn" onclick="editActivity()">+ Add activity</button></div>';
+  const mean=list.filter(a=>a.meaningful).length;
+  h+='<div class="card" style="padding:0;margin-bottom:16px"><div style="display:flex">'+
+    gstat(Math.round(totalHours()), "total hours", list.length+" activities")+
+    gstat(Math.round(list.filter(a=>/clinical|shadow/i.test(a.category||"")).reduce((s,a)=>s+actHours(a),0)),
+          "clinical", "incl. shadowing")+
+    gstat(Math.round(list.filter(a=>/research/i.test(a.category||"")).reduce((s,a)=>s+actHours(a),0)),
+          "research", mean+"/3 flagged")+
+    '</div></div>';
+  h+='<section class="sec"><div class="sec-h"><h2>By category</h2><div class="line"></div></div><div class="card">';
+  for(const [cat,hrs] of hoursByCat()){
+    const pc=totalHours()>0?hrs/totalHours()*100:0;
+    h+='<div class="catrow"><div class="grow" style="font-size:13px;min-width:0">'+esc(cat)+'</div>'+
+      '<div class="bar"><i style="width:'+pc.toFixed(0)+'%"></i></div>'+
+      '<div class="num" style="font-size:13px;font-weight:700;min-width:44px;text-align:right">'+Math.round(hrs)+'h</div></div>';
+  }
+  h+='</div></section>';
+  h+='<section class="sec"><div class="sec-h"><h2>Activities</h2><div class="line"></div>'+
+     '<button class="btn ghost sm" onclick="editActivity()">+ Add</button></div><div class="stack">';
+  for(const a of list){
+    const recent=(a.entries||[]).slice().sort((x,y)=>y.date.localeCompare(x.date))[0];
+    h+='<div class="item" style="border-left-color:'+(a.meaningful?"var(--brass)":"var(--rule)")+'">'+
+      '<div class="grow" style="min-width:0">'+
+        '<div class="it-t">'+esc(a.name||"Untitled")+(a.meaningful?' <span class="typ" style="border-color:var(--brass);color:var(--brass)">most meaningful</span>':'')+'</div>'+
+        '<div class="it-m"><span class="it-c" style="color:var(--depth)">'+esc(a.category||"Other")+'</span>'+
+        (a.org?'<span class="it-d">'+esc(a.org)+'</span>':'')+
+        (recent?'<span class="it-d">last '+esc(shortDate(recent.date))+'</span>':'<span class="it-d muted">no hours yet</span>')+
+        '</div></div>'+
+      '<div style="text-align:right;flex:none">'+
+        '<div class="num" style="font-size:16px;font-weight:700">'+Math.round(actHours(a))+'<span style="font-size:11px">h</span></div>'+
+        '<button class="btn ghost sm" data-logh="'+a.id+'" style="margin-top:4px">+ Hours</button></div>'+
+      '<button class="hbtn" data-aedit="'+a.id+'" aria-label="Edit activity"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg></button>'+
+      '</div>';
+  }
+  h+='</div></section>';
+  h+='<button class="btn ghost wide" id="a_export">Export hours summary</button>';
+  return h;
+}
+function bindLog(root){
+  root.querySelectorAll("[data-aedit]").forEach(b=>b.onclick=()=>editActivity(b.dataset.aedit));
+  root.querySelectorAll("[data-logh]").forEach(b=>b.onclick=()=>logHours(b.dataset.logh));
+  const ex=root.querySelector("#a_export");
+  if(ex) ex.onclick=()=>{
+    const lines=["Activity,Category,Organisation,Role,Start,End,Total hours,Contact,Contact email,Most meaningful"];
+    for(const a of activityList()) lines.push([a.name,a.category,a.org,a.role,a.start,a.end||(a.ongoing?"ongoing":""),
+      Math.round(actHours(a)),a.contactName,a.contactEmail,a.meaningful?"yes":""]
+      .map(v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"').join(","));
+    lines.push("");
+    lines.push("Activity,Date,Hours,Note");
+    for(const a of activityList()) for(const e of (a.entries||[]).slice().sort((x,y)=>x.date.localeCompare(y.date)))
+      lines.push([a.name,e.date,e.hours,e.note||""].map(v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"').join(","));
+    dl("experience-hours-"+dkey(new Date())+".csv", lines.join("\n"), "text/csv");
+  };
+}
+function logHours(id){
+  const a=D.activities.find(x=>x.id===id);
+  const rows=(a.entries||[]).slice().sort((x,y)=>y.date.localeCompare(x.date)).slice(0,10).map(e=>
+    '<div class="catrow"><div class="grow" style="font-size:13px;min-width:0"><span class="num">'+esc(shortDate(e.date))+'</span>'+
+    (e.note?' <span class="muted">'+esc(e.note)+'</span>':'')+'</div>'+
+    '<div class="num" style="font-size:13px;font-weight:700">'+e.hours+'h</div>'+
+    '<button class="btn ghost sm" data-eh="'+e.id+'">&#10005;</button></div>').join("")
+    ||'<p class="hint" style="margin:0">Nothing logged yet.</p>';
+  openSheet(a.name+" — hours",
+    '<div class="two"><label class="f"><span>Date</span><input type="date" id="e_d" value="'+dkey(today0())+'"></label>'+
+    '<label class="f"><span>Hours</span><input type="number" step="0.25" min="0" id="e_h" placeholder="3"></label></div>'+
+    '<label class="f"><span>Note (optional)</span><input id="e_n" placeholder="ED front desk, patient transport"></label>'+
+    '<button class="btn wide" id="e_ok">Log hours</button>'+
+    '<div class="sec-h" style="margin-top:18px"><h2>Recent</h2><div class="line"></div>'+
+      '<span class="num lbl">'+Math.round(actHours(a))+'h total</span></div>'+rows);
+  $("#e_ok").onclick=()=>{
+    const hrs=parseFloat($("#e_h").value);
+    if(isNaN(hrs)||hrs<=0) return toast("Enter the hours");
+    a.entries=a.entries||[];
+    a.entries.push({id:uid(),date:$("#e_d").value||dkey(today0()),hours:hrs,note:$("#e_n").value.trim()});
+    touch(a); save(); closeSheet(); render(); toast("Logged "+hrs+"h · "+Math.round(actHours(a))+"h total");
+  };
+  $("#sheet").querySelectorAll("[data-eh]").forEach(x=>x.onclick=()=>{
+    a.entries=(a.entries||[]).filter(e=>e.id!==x.dataset.eh); touch(a); save(); closeSheet(); render();
+  });
+}
+function editActivity(id){
+  const a = id ? D.activities.find(x=>x.id===id) : null;
+  const meanCount=activityList().filter(x=>x.meaningful&&(!a||x.id!==a.id)).length;
+  openSheet(a?"Edit activity":"New activity",
+    '<label class="f"><span>Activity name</span><input id="a_n" value="'+esc(a?a.name:"")+'" placeholder="Emergency department volunteer"></label>'+
+    '<label class="f"><span>Category</span><select id="a_c">'+
+      ACT_CATS.map(x=>'<option'+(a&&a.category===x?" selected":"")+'>'+x+'</option>').join("")+'</select></label>'+
+    '<div class="two"><label class="f"><span>Organisation</span><input id="a_o" value="'+esc(a?a.org:"")+'" placeholder="UPMC Presbyterian"></label>'+
+    '<label class="f"><span>Your role</span><input id="a_r" value="'+esc(a?a.role:"")+'" placeholder="Volunteer"></label></div>'+
+    '<div class="two"><label class="f"><span>Start</span><input type="date" id="a_s" value="'+esc(a&&a.start?a.start:dkey(today0()))+'"></label>'+
+    '<label class="f"><span>End</span><input type="date" id="a_e" value="'+esc(a&&a.end?a.end:"")+'"></label></div>'+
+    '<label class="f" style="display:flex;align-items:center;gap:9px"><input type="checkbox" id="a_g" '+((a?a.ongoing:true)?"checked":"")+' style="width:20px;height:20px;flex:none"><span style="margin:0">Still ongoing</span></label>'+
+    '<div class="sec-h" style="margin:16px 0 8px"><h2>Contact</h2><div class="line"></div></div>'+
+    '<label class="f"><span>Name and title</span><input id="a_cn" value="'+esc(a?a.contactName:"")+'" placeholder="Dr. Jane Smith, Volunteer Coordinator"></label>'+
+    '<div class="two"><label class="f"><span>Email</span><input id="a_ce" value="'+esc(a?a.contactEmail:"")+'" autocapitalize="off"></label>'+
+    '<label class="f"><span>Phone</span><input id="a_cp" value="'+esc(a?a.contactPhone:"")+'"></label></div>'+
+    '<label class="f"><span>Description <span id="a_ct" class="num"></span></span>'+
+      '<textarea id="a_d" maxlength="'+ACT_MEANING_MAX+'">'+esc(a?a.desc:"")+'</textarea></label>'+
+    '<label class="f" style="display:flex;align-items:center;gap:9px"><input type="checkbox" id="a_m" '+(a&&a.meaningful?"checked":"")+' style="width:20px;height:20px;flex:none"><span style="margin:0">Flag as "most meaningful"'+(meanCount>=3?" (already 3 flagged)":"")+'</span></label>'+
+    '<div class="row" style="margin-top:6px">'+(a?'<button class="btn danger sm" id="a_del">Delete</button>':'')+
+    '<div class="grow"></div><button class="btn" id="a_ok">Save</button></div>');
+  const count=()=>{
+    const n=$("#a_d").value.length, lim=$("#a_m").checked?ACT_MEANING_MAX:ACT_DESC_MAX;
+    const el=$("#a_ct");
+    el.textContent=n+" / "+lim;
+    el.style.color = n>lim ? "var(--shoal)" : "var(--ink-3)";
+  };
+  $("#a_d").oninput=count; $("#a_m").onchange=count; count();
+  $("#a_ok").onclick=()=>{
+    const name=$("#a_n").value.trim(); if(!name) return toast("Name the activity");
+    if($("#a_m").checked && meanCount>=3) return toast("Applications allow only three most-meaningful");
+    const f={name,category:$("#a_c").value,org:$("#a_o").value.trim(),role:$("#a_r").value.trim(),
+      start:$("#a_s").value,end:$("#a_e").value,ongoing:$("#a_g").checked,
+      contactName:$("#a_cn").value.trim(),contactEmail:$("#a_ce").value.trim(),
+      contactPhone:$("#a_cp").value.trim(),desc:$("#a_d").value,meaningful:$("#a_m").checked};
+    if(a) touch(Object.assign(a,f));
+    else D.activities.push(touch(Object.assign({id:uid(),entries:[]},f)));
+    save(); closeSheet(); render(); toast(a?"Saved":"Activity added");
+  };
+  if(a) $("#a_del").onclick=()=>{
+    if(!confirm("Delete "+a.name+" and its logged hours?")) return;
+    a.del=true; touch(a); save(); closeSheet(); render();
+  };
+}
+
 /* ---------------- view: SETUP ---------------- */
 function vSetup(){
   const s=D.settings, ls=s.lastSync?new Date(s.lastSync):null;
@@ -1221,6 +1723,29 @@ function vSetup(){
     'on one and editing grades on the other both stick. Worker URL, app key and '+
     'push stay per-device. Newest edit wins if you change the same thing in both '+
     'places before syncing.</p></div>');
+  const wk=weeklyList();
+  h+=sec("Your week",
+    '<div class="card">'+
+    '<p class="hint" style="margin:0 0 10px">The hours you\'d actually study between — not when you\'re awake. Nothing gets scheduled outside them.</p>'+
+    '<div class="two"><label class="f"><span>Study from (hour)</span><input type="number" min="0" max="23" id="s_wake" value="'+(s.wakeHour!=null?s.wakeHour:9)+'"></label>'+
+    '<label class="f"><span>Study until (hour)</span><input type="number" min="1" max="24" id="s_bed" value="'+(s.sleepHour!=null?s.sleepHour:22)+'"></label></div>'+
+    '<div class="two"><label class="f"><span>Shortest useful session (min)</span><input type="number" min="10" step="5" id="s_sess" value="'+(s.sessionMin||30)+'"></label>'+
+    '<label class="f"><span>Break between sessions (min)</span><input type="number" min="0" step="5" id="s_rest" value="'+(s.restMin!=null?s.restMin:45)+'"></label></div>'+
+    '<label class="f"><span>Buffer around calendar events (min)</span><input type="number" min="0" step="5" id="s_buf" value="'+(s.bufferMin!=null?s.bufferMin:10)+'"></label>'+
+    '<button class="btn ghost wide" id="s_wsave">Save hours</button>'+
+    '<div class="sec-h" style="margin:16px 0 8px"><h2>Calendar feed</h2><div class="line"></div>'+
+      '<span class="pill '+((D.busy||[]).length?"ok":"warn")+'">'+((D.busy||[]).length?(D.busy.length+" events"):"none")+'</span></div>'+
+    '<p class="hint" style="margin:0 0 8px">Set <b>BUSY_ICS_URL</b> in the worker to your Google Calendar\'s private iCal address and study blocks will dodge your classes, labs and shifts automatically.</p>'+
+    '<button class="btn ghost wide" id="s_busy">Refresh calendar now</button>'+
+    '<div class="sec-h" style="margin:16px 0 8px"><h2>Recurring commitments</h2><div class="line"></div>'+
+      '<button class="btn ghost sm" id="s_waddw">+ Add</button></div>'+
+    (wk.length? wk.map(w=>'<div class="catrow"><div class="grow" style="min-width:0">'+
+        '<div style="font-size:13px;font-weight:600">'+esc(w.title||"Commitment")+'</div>'+
+        '<div class="lbl" style="letter-spacing:.06em">'+(w.days||[]).map(d=>DOW3[d]).join(" ")+' · '+
+        hm(parseHM(w.start)||0)+' · '+(w.min||60)+'m</div></div>'+
+        '<button class="btn ghost sm" data-wdel="'+w.id+'">&#10005;</button></div>').join("")
+      : '<p class="hint" style="margin:0">Nothing yet. Add anything your calendar doesn\'t already cover — training blocks, a standing shift.</p>')+
+    '</div>');
   h+=sec("Syllabus",
     '<div class="card"><button class="btn ghost wide" onclick="syllabusSheet()">Import a syllabus</button>'+
     '<p class="hint">Paste or upload the schedule; every dated line becomes a proposed item you approve first. Grade weights like “Homework 20%” get picked up too.</p></div>');
@@ -1293,6 +1818,47 @@ function bindSetup(root){
     D.settings.email=g("#s_e").value.trim();
     D.settings.digestHour=Math.max(0,Math.min(23,parseInt(g("#s_h").value)||7));
     touchSettings(); save(false); await cloudSync(true); tellSW(); render(); toast("Reminder settings saved"); };
+  const wsave=g("#s_wsave");
+  if(wsave) wsave.onclick=()=>{
+    D.settings.wakeHour=Math.max(0,Math.min(23,parseInt(g("#s_wake").value)||9));
+    D.settings.sleepHour=Math.max(1,Math.min(24,parseInt(g("#s_bed").value)||22));
+    D.settings.sessionMin=Math.max(10,parseInt(g("#s_sess").value)||30);
+    D.settings.restMin=Math.max(0,parseInt(g("#s_rest").value)||0);
+    D.settings.bufferMin=Math.max(0,parseInt(g("#s_buf").value)||0);
+    touchSettings(); buildPlan(); render(); toast("Hours saved — plan rebuilt");
+  };
+  const bb=g("#s_busy");
+  if(bb) bb.onclick=async()=>{
+    grab(); save(false);
+    const ok=await refreshBusy(true);
+    if(ok){ buildPlan(); render(); toast((D.busy||[]).length+" calendar events loaded"); }
+    else toast("No calendar feed set on the worker yet");
+  };
+  const wa=g("#s_waddw");
+  if(wa) wa.onclick=()=>{
+    openSheet("Recurring commitment",
+      '<label class="f"><span>What is it</span><input id="w_t" placeholder="CHEM 0310 lecture"></label>'+
+      '<label class="f"><span>Days</span><div class="row" id="w_d" style="flex-wrap:wrap">'+
+        DOW3.map((d,i)=>'<button class="btn ghost sm" data-wd="'+i+'">'+d+'</button>').join("")+'</div></label>'+
+      '<div class="two"><label class="f"><span>Starts</span><input type="time" id="w_s" value="10:00"></label>'+
+      '<label class="f"><span>Minutes</span><input type="number" id="w_m" min="15" step="5" value="50"></label></div>'+
+      '<button class="btn wide" id="w_ok">Add commitment</button>');
+    const picked=new Set();
+    $("#w_d").querySelectorAll("[data-wd]").forEach(b=>b.onclick=()=>{
+      const i=+b.dataset.wd;
+      if(picked.has(i)){ picked.delete(i); b.classList.add("ghost"); } else { picked.add(i); b.classList.remove("ghost"); }
+    });
+    $("#w_ok").onclick=()=>{
+      if(!picked.size) return toast("Pick at least one day");
+      D.weekly.push(touch({id:uid(),title:$("#w_t").value.trim()||"Commitment",
+        days:[...picked].sort(),start:$("#w_s").value||"10:00",min:parseInt($("#w_m").value)||50}));
+      buildPlan(); closeSheet(); render(); toast("Added");
+    };
+  };
+  root.querySelectorAll("[data-wdel]").forEach(b=>b.onclick=()=>{
+    const w=D.weekly.find(x=>x.id===b.dataset.wdel);
+    w.del=true; touch(w); buildPlan(); render();
+  });
   g("#s_psave").onclick=()=>{ D.settings.dailyCapMin=Math.max(30,parseInt(g("#s_cap").value)||180);
     D.settings.target=Math.max(0,Math.min(100,parseFloat(g("#s_tg").value)||90));
     touchSettings(); buildPlan(); render(); toast("Saved"); };
@@ -1313,7 +1879,7 @@ function bindSetup(root){
 }
 
 /* ---------------- render ---------------- */
-const VIEWS={today:vToday, chart:vChart, grades:vGrades, plan:vPlan, setup:vSetup};
+const VIEWS={today:vToday, chart:vChart, grades:vGrades, plan:vPlan, log:vLog, setup:vSetup};
 function syncTabs(){ document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab)); }
 function render(){
   renderBearing();
@@ -1327,12 +1893,14 @@ function render(){
   }
   if(tab==="grades") bindGrades(root);
   if(tab==="plan") bindPlan(root);
+  if(tab==="log") bindLog(root);
   if(tab==="setup") bindSetup(root);
 }
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{
   tab=b.dataset.tab; syncTabs(); render(); window.scrollTo(0,0);
 });
 $("#syncBtn").onclick=syncEverything;
+$("#setupBtn").onclick=()=>{ tab="setup"; syncTabs(); render(); window.scrollTo(0,0); };
 document.addEventListener("visibilitychange",()=>{
   if(document.hidden) return;
   renderBearing();
@@ -1362,6 +1930,8 @@ if(W()){
   setTimeout(async()=>{
     await cloudSync(true);
     if(Date.now()-(D.settings.lastSync||0) > 3600000) await syncCanvas(true);
+    await refreshBusy(false);
+    buildPlan(false);
     render();
   }, 900);
 }
