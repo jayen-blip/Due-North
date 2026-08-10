@@ -1,0 +1,16 @@
+{
+  "name": "Due North",
+  "short_name": "Due North",
+  "description": "Every college deadline on one chart, with reminders that actually reach you.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#E8EBE6",
+  "theme_color": "#0C1B2A",
+  "icons": [
+    {"src":"icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+    {"src":"icon-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}
+  ]
+}
