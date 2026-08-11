@@ -1467,6 +1467,29 @@ function syllabusSheet(){
 
 /* ---------------- push ---------------- */
 let swReg=null;
+let pushState={checked:false};
+function installed(){
+  try{ return matchMedia("(display-mode: standalone)").matches || navigator.standalone===true; }
+  catch(e){ return false; }
+}
+async function checkPush(){
+  const st={checked:true, standalone:installed(),
+    perm:("Notification" in window)?Notification.permission:"unsupported",
+    swOK:false, sub:false, host:null};
+  try{
+    const reg = swReg || (navigator.serviceWorker && await navigator.serviceWorker.getRegistration());
+    st.swOK=!!reg;
+    if(reg){
+      const sub=await reg.pushManager.getSubscription();
+      st.sub=!!sub;
+      if(sub) st.host=(()=>{ try{ return new URL(sub.endpoint).host; }catch(e){ return null; } })();
+    }
+  }catch(e){ st.err=String(e.message||e).slice(0,80); }
+  pushState=st;
+  // reconcile the stored flag with what the browser actually has
+  if(!!D.settings.push !== st.sub){ D.settings.push=st.sub; save(false); }
+  return st;
+}
 async function registerSW(){
   if(!("serviceWorker" in navigator)) return null;
   try{ swReg = await navigator.serviceWorker.register("sw.js"); return swReg; }
@@ -1490,16 +1513,33 @@ async function enablePush(){
   const reg = swReg || await registerSW();
   if(!reg) return toast("Service worker failed — must be served over https");
   const perm = await Notification.requestPermission();
-  if(perm!=="granted") return toast("Notifications blocked in browser settings");
+  if(perm==="denied") return toast("This site is blocked from sending notifications — clear it in Chrome's site settings");
+  if(perm!=="granted") return toast("Permission not granted — tap Turn on push again and choose Allow");
   try{
     const {key} = await api("/push/key");
+    if(!key) return toast("Worker has no VAPID_PUBLIC set");
     let sub = await reg.pushManager.getSubscription();
     if(!sub) sub = await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:b64url(key)});
     await api("/push/subscribe",{method:"POST",body:JSON.stringify({sub:sub.toJSON(),
       tz:Intl.DateTimeFormat().resolvedOptions().timeZone})});
     await tellSW(); await cloudSync(true);
-    D.settings.push=true; save(); render(); toast("Push notifications on");
-  }catch(e){ toast(e.message.slice(0,90)); }
+    D.settings.push=true; save(); await checkPush(); render();
+    toast("Push on for this device"+(installed()?"":" — but you're in a browser tab, install to the home screen"));
+  }catch(e){ toast("Subscribe failed: "+String(e.message||e).slice(0,80)); }
+}
+/* Drops any existing subscription and makes a fresh one. Fixes a device that
+   thinks it is registered but isn't, or one holding a stale subscription. */
+async function reRegisterPush(){
+  try{
+    const reg = swReg || await navigator.serviceWorker.getRegistration();
+    const sub = reg && await reg.pushManager.getSubscription();
+    if(sub){
+      await api("/push/unsubscribe",{method:"POST",body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{});
+      await sub.unsubscribe();
+    }
+    D.settings.push=false; save(false);
+  }catch(e){}
+  await enablePush();
 }
 async function disablePush(){
   try{
@@ -1507,7 +1547,7 @@ async function disablePush(){
     const sub=reg&&await reg.pushManager.getSubscription();
     if(sub){ await api("/push/unsubscribe",{method:"POST",body:JSON.stringify({endpoint:sub.endpoint})}).catch(()=>{}); await sub.unsubscribe(); }
   }catch(e){}
-  D.settings.push=false; save(); render(); toast("Push off");
+  D.settings.push=false; save(); await checkPush(); render(); toast("Push off for this device");
 }
 
 /* ---------------- calendar export ---------------- */
@@ -1705,7 +1745,11 @@ function vSetup(){
     '<div class="row"><button class="btn ghost sm" id="s_test">Test connection</button>'+
     '<button class="btn sm" id="s_sync">Sync now</button></div>'+
     '<p class="hint">'+(ls?"Last synced "+ls.toLocaleString()+".":"Not synced yet.")+
-    '<br>Your Canvas token lives in the worker, never in this browser.</p></div>');
+    (s.srcIcs||s.srcCanvas
+      ? '<br>Source: <b>'+(s.srcCanvas?"Canvas API token":"Canvas calendar feed")+'</b>.'+
+        (s.srcIcs&&!s.srcCanvas?' Due dates only — scores and completion are entered by hand.':'')
+      : '<br>Set <b>ICS_URL</b> (calendar feed) or <b>CANVAS_TOKEN</b> on the worker, then test again.')+
+    '<br>Credentials stay in the worker, never in this browser.</p></div>');
   const cl=s.lastCloud?new Date(s.lastCloud):null;
   h+=sec("Devices",
     '<div class="card">'+
@@ -1749,27 +1793,42 @@ function vSetup(){
   h+=sec("Syllabus",
     '<div class="card"><button class="btn ghost wide" onclick="syllabusSheet()">Import a syllabus</button>'+
     '<p class="hint">Paste or upload the schedule; every dated line becomes a proposed item you approve first. Grade weights like “Homework 20%” get picked up too.</p></div>');
-  const pstate = !("Notification" in window) ? ["unsupported","This browser can't show notifications."]
-    : Notification.permission==="denied" ? ["blocked","Notifications are blocked for this site in your browser settings."]
-    : s.push ? ["on","Armed. Reminders arrive even when the app is closed."]
-    : ["off","Off. Turn on to get reminders when the app is closed."];
+  const ps=pushState;
+  const pstate = ps.perm==="unsupported" ? ["unsupported","This browser can't show notifications."]
+    : ps.perm==="denied" ? ["blocked","This site is blocked from sending notifications. Chrome → site settings → Notifications → Allow, then come back."]
+    : ps.sub ? ["on","This device is registered. Reminders arrive even when the app is closed."]
+    : ["off","This device is not registered yet. Push has to be switched on from each device separately."];
   h+=sec("Reminders",
     '<div class="card">'+
     '<div class="row" style="margin-bottom:11px"><div class="grow"><div style="font-weight:700;font-size:14px">Phone push</div>'+
     '<div class="hint" style="margin:1px 0 0">'+pstate[1]+'</div></div>'+
     '<span class="pill '+(pstate[0]==="on"?"ok":pstate[0]==="off"?"warn":"bad")+'">'+pstate[0]+'</span></div>'+
     (pstate[0]==="on"
-      ? '<div class="row"><button class="btn ghost sm" id="s_ptest">Send test</button><button class="btn ghost sm" id="s_poff">Turn off</button></div>'
+      ? '<div class="row" style="flex-wrap:wrap"><button class="btn ghost sm" id="s_ptest">Send test</button>'+
+        '<button class="btn ghost sm" id="s_pre">Re-register</button>'+
+        '<button class="btn ghost sm" id="s_poff">Turn off</button></div>'
       : pstate[0]==="off" ? '<button class="btn wide" id="s_pon">Turn on push</button>' : "")+
+    '<div class="hint" style="margin-top:9px;font-family:var(--mono);font-size:11px;line-height:1.7">'+
+      'this device &middot; opened as '+(ps.standalone?'<b>installed app</b>':'<b style="color:var(--shoal)">browser tab</b>')+'<br>'+
+      'permission <b>'+esc(ps.perm||"?")+'</b> &middot; service worker <b>'+(ps.swOK?"ok":"missing")+'</b><br>'+
+      'subscription <b>'+(ps.sub?"yes":"no")+'</b>'+(ps.host?' &middot; via '+esc(ps.host):'')+
+      (ps.err?'<br><span style="color:var(--shoal)">'+esc(ps.err)+'</span>':'')+
+    '</div>'+
+    (s.srcSubs!=null?'<p class="hint" style="margin:8px 0 0">Devices armed for push: <b>'+s.srcSubs+'</b>. '+
+      'Each phone or laptop has to be turned on separately, from that device.</p>':'')+
     '<hr style="border:none;border-top:1px solid var(--rule-2);margin:14px 0">'+
     '<label class="f"><span>Email for reminders</span><input type="email" id="s_e" value="'+esc(s.email)+'" placeholder="you@pitt.edu" autocapitalize="off"></label>'+
+    (s.srcEmailKey===false?'<p class="hint" style="color:var(--shoal)">No RESEND_KEY on the worker — email can\'t send.</p>'
+     :s.srcEmailTo===false?'<p class="hint" style="color:var(--shoal)">The worker doesn\'t have your address yet. Save reminder settings below.</p>':'')+
     '<label class="f"><span>Daily digest hour (0–23, your time)</span><input type="number" min="0" max="23" id="s_h" value="'+s.digestHour+'"></label>'+
     '<label class="f"><span>Warn me this many days ahead</span>'+
       '<div class="row" id="s_lead" style="flex-wrap:wrap">'+[0,1,2,3,5,7,14].map(n=>
         '<button class="btn sm '+(s.leadDays.includes(n)?"":"ghost")+'" data-ld="'+n+'">'+(n===0?"day of":n+"d")+'</button>').join("")+
       '</div></label>'+
     '<button class="btn ghost wide" id="s_rsave">Save reminder settings</button>'+
-    '<p class="hint">Email needs no setup on this device and is the reliable channel. Push needs the app installed to your home screen.</p></div>');
+    '<p class="hint">Push must be switched on <b>separately on every device</b>, from that device, with the app installed to the home screen. '+
+    'Email sends from the worker, so it only needs to be saved once — but the address must match the one you signed up to Resend with, '+
+    'because the default sender can only reach that address.</p></div>');
   h+=sec("Calendar & backup",
     '<div class="card stack">'+
     '<button class="btn ghost wide" onclick="exportICS()">Export .ics for Google / Apple / Outlook</button>'+
@@ -1789,7 +1848,17 @@ function bindSetup(root){
   const g=id=>root.querySelector(id);
   const grab=()=>{ D.settings.workerUrl=g("#s_w").value.trim(); D.settings.appKey=g("#s_k").value.trim(); };
   g("#s_test").onclick=async()=>{ grab(); save(false);
-    try{ const r=await api("/health"); toast(r.canvas?"Connected · Canvas OK":"Connected · Canvas token missing"); tellSW(); }
+    try{
+      const r=await api("/health");
+      const src=[]; if(r.canvas) src.push("Canvas API"); if(r.ics) src.push("calendar feed");
+      const extra=[]; if(r.busy) extra.push("timetable"); if(r.email) extra.push("email"); if(r.push) extra.push("push");
+      D.settings.srcSubs=r.subs; D.settings.srcEmailKey=!!r.email; D.settings.srcEmailTo=!!r.emailTo;
+      toast(src.length
+        ? "Connected · "+src.join(" + ")+(extra.length?" · "+extra.join(", "):"")
+        : "Connected · no due-date source set (ICS_URL or CANVAS_TOKEN)");
+      D.settings.srcCanvas=!!r.canvas; D.settings.srcIcs=!!r.ics; D.settings.srcBusy=!!r.busy;
+      save(false); render(); tellSW();
+    }
     catch(e){ toast(e.message.slice(0,90)); } };
   g("#s_sync").onclick=()=>{ grab(); save(false); syncEverything(); };
   g("#s_cnow").onclick=()=>{ grab(); save(false); cloudSync(false); };
@@ -1807,8 +1876,18 @@ function bindSetup(root){
   };
   const pon=g("#s_pon"); if(pon) pon.onclick=()=>{ grab(); save(false); enablePush(); };
   const poff=g("#s_poff"); if(poff) poff.onclick=disablePush;
+  const pre=g("#s_pre"); if(pre) pre.onclick=()=>{ grab(); save(false); reRegisterPush(); };
   const pt=g("#s_ptest"); if(pt) pt.onclick=async()=>{
-    try{ await api("/push/test",{method:"POST",body:"{}"}); toast("Test sent"); }catch(e){ toast(e.message.slice(0,90)); } };
+    try{
+      const r=await api("/push/test",{method:"POST",body:"{}"});
+      D.settings.srcSubs=r.devices; save(false);
+      const parts=[];
+      parts.push(r.pushed?("pushed to "+r.pushed+" of "+r.devices+" device"+(r.devices===1?"":"s"))
+        : (r.devices?"push failed on all "+r.devices+" devices":"no devices armed — turn push on here"));
+      parts.push(r.emailed?("emailed "+(r.emailTo||"")):("email failed — "+(r.emailWhy||"unknown")));
+      toast(parts.join(" · "));
+      render();
+    }catch(e){ toast(e.message.slice(0,90)); } };
   root.querySelectorAll("[data-ld]").forEach(b=>b.onclick=()=>{
     const n=+b.dataset.ld, l=D.settings.leadDays;
     D.settings.leadDays = l.includes(n) ? l.filter(x=>x!==n) : l.concat(n).sort((a,b)=>b-a);
@@ -1894,7 +1973,10 @@ function render(){
   if(tab==="grades") bindGrades(root);
   if(tab==="plan") bindPlan(root);
   if(tab==="log") bindLog(root);
-  if(tab==="setup") bindSetup(root);
+  if(tab==="setup"){
+    bindSetup(root);
+    if(!pushState.checked) checkPush().then(()=>{ if(tab==="setup") render(); });
+  }
 }
 document.querySelectorAll("#tabs button").forEach(b=>b.onclick=()=>{
   tab=b.dataset.tab; syncTabs(); render(); window.scrollTo(0,0);
